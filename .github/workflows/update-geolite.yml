@@ -99,25 +99,25 @@ jobs:
           rm -rf dist tmp
 
           cat > README.md <<'EOF'
-# GeoLite MMDB
+          # GeoLite MMDB
 
-This branch is automatically updated by GitHub Actions.
+          This branch is automatically updated by GitHub Actions.
 
-## Direct download URLs
+          ## Direct download URLs
 
-```text
-https://raw.githubusercontent.com/${{ github.repository }}/download/GeoLite2-ASN.mmdb
-https://raw.githubusercontent.com/${{ github.repository }}/download/GeoLite2-City.mmdb
-https://raw.githubusercontent.com/${{ github.repository }}/download/GeoLite2-Country.mmdb
-```
+          ```text
+          https://raw.githubusercontent.com/${{ github.repository }}/download/GeoLite2-ASN.mmdb
+          https://raw.githubusercontent.com/${{ github.repository }}/download/GeoLite2-City.mmdb
+          https://raw.githubusercontent.com/${{ github.repository }}/download/GeoLite2-Country.mmdb
+          ```
 
-## Files
+          ## Files
 
-- `GeoLite2-ASN.mmdb`
-- `GeoLite2-City.mmdb`
-- `GeoLite2-Country.mmdb`
-- `SHA256SUMS`
-EOF
+          - `GeoLite2-ASN.mmdb`
+          - `GeoLite2-City.mmdb`
+          - `GeoLite2-Country.mmdb`
+          - `SHA256SUMS`
+          EOF
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
