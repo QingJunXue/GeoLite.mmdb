@@ -3,7 +3,8 @@ name: Update GeoLite MMDB
 on:
   workflow_dispatch:
   schedule:
-    - cron: "23 18 * * 2,5"
+    # Runs every Friday at 20:00 China Standard Time (UTC+8).
+    - cron: "0 12 * * 5"
 
 permissions:
   contents: write
