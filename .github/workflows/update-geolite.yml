@@ -1,0 +1,133 @@
+name: Update GeoLite MMDB
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 18 * * 2,5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-geolite-mmdb
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    env:
+      MAXMIND_ACCOUNT_ID: ${{ secrets.MAXMIND_ACCOUNT_ID }}
+      MAXMIND_LICENSE_KEY: ${{ secrets.MAXMIND_LICENSE_KEY }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare download branch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch origin download || true
+
+          if git show-ref --verify --quiet refs/remotes/origin/download; then
+            git switch --track origin/download
+          else
+            git switch --orphan download
+            git rm -rf . || true
+          fi
+
+      - name: Validate MaxMind secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${MAXMIND_ACCOUNT_ID}" || -z "${MAXMIND_LICENSE_KEY}" ]]; then
+            echo "Missing MAXMIND_ACCOUNT_ID or MAXMIND_LICENSE_KEY repository secret."
+            exit 1
+          fi
+
+      - name: Download GeoLite databases
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          editions=(
+            GeoLite2-ASN
+            GeoLite2-City
+            GeoLite2-Country
+          )
+
+          rm -rf dist tmp
+          mkdir -p dist tmp
+
+          for edition in "${editions[@]}"; do
+            archive="tmp/${edition}.tar.gz"
+            url="https://download.maxmind.com/geoip/databases/${edition}/download?suffix=tar.gz"
+
+            echo "Downloading ${edition}..."
+            curl --fail --location --show-error \
+              --user "${MAXMIND_ACCOUNT_ID}:${MAXMIND_LICENSE_KEY}" \
+              --output "${archive}" \
+              "${url}"
+
+            mkdir -p "tmp/${edition}"
+            tar -xzf "${archive}" -C "tmp/${edition}"
+            found_file="$(find "tmp/${edition}" -type f -name "${edition}.mmdb" | head -n 1)"
+
+            if [[ -z "${found_file}" ]]; then
+              echo "Could not find ${edition}.mmdb inside downloaded archive."
+              exit 1
+            fi
+
+            cp "${found_file}" "dist/${edition}.mmdb"
+          done
+
+          cd dist
+          sha256sum *.mmdb > SHA256SUMS
+
+      - name: Publish database files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cp dist/*.mmdb .
+          cp dist/SHA256SUMS .
+          rm -rf dist tmp
+
+          cat > README.md <<'EOF'
+# GeoLite MMDB
+
+This branch is automatically updated by GitHub Actions.
+
+## Direct download URLs
+
+```text
+https://raw.githubusercontent.com/${{ github.repository }}/download/GeoLite2-ASN.mmdb
+https://raw.githubusercontent.com/${{ github.repository }}/download/GeoLite2-City.mmdb
+https://raw.githubusercontent.com/${{ github.repository }}/download/GeoLite2-Country.mmdb
+```
+
+## Files
+
+- `GeoLite2-ASN.mmdb`
+- `GeoLite2-City.mmdb`
+- `GeoLite2-Country.mmdb`
+- `SHA256SUMS`
+EOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add GeoLite2-*.mmdb SHA256SUMS README.md
+
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo "No changes to publish."
+            exit 0
+          fi
+
+          git commit -m "Update GeoLite databases"
+          git push origin HEAD:download
